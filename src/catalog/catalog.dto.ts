@@ -1,5 +1,11 @@
-import { IsBoolean, IsInt, IsNumber, IsOptional, IsString } from 'class-validator';
-import { NumericField } from '../common/dto-transforms';
+import {
+  IsBoolean,
+  IsInt,
+  IsNumber,
+  IsOptional,
+  IsString,
+} from "class-validator";
+import { NumericField } from "../common/dto-transforms";
 
 export class WorkerTechniqueBodyDto {
   [key: string]: any;

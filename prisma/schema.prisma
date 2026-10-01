@@ -104,6 +104,7 @@ model PosCategory {
 
 model Product {
   id                 String              @id @default(cuid())
+  code               String?             @unique
   internalReference  String?             @unique
   name               String
   productType        ProductType         @default(FINISHED_PRODUCT)
@@ -120,8 +121,20 @@ model Product {
   unitCost           Decimal?            @db.Decimal(24, 12)
   costPerGram        Decimal?            @db.Decimal(27, 15)
   costUnit           String?
-  unit               String              @default("unit")
+  unit               String              @default("und")
   purchaseUnit       String?
+  isStockable        Boolean             @default(true)
+  // Optional piece sheet used to autocomplete the quoter for finished products.
+  lengthCm           Decimal?            @db.Decimal(24, 12)
+  widthCm            Decimal?            @db.Decimal(24, 12)
+  heightCm           Decimal?            @db.Decimal(24, 12)
+  clayWeightG        Decimal?            @db.Decimal(24, 12)
+  defaultClayId      String?
+  defaultClay        Product?            @relation("ProductDefaultClay", fields: [defaultClayId], references: [id], onDelete: SetNull)
+  defaultGlazeId     String?
+  defaultGlaze       Product?            @relation("ProductDefaultGlaze", fields: [defaultGlazeId], references: [id], onDelete: SetNull)
+  clayFor            Product[]           @relation("ProductDefaultClay")
+  glazeFor           Product[]           @relation("ProductDefaultGlaze")
   isActive           Boolean             @default(true)
   createdAt          DateTime            @default(now())
   updatedAt          DateTime            @updatedAt
@@ -163,6 +176,7 @@ model Contact {
 
 model Customer {
   id           String      @id @default(cuid())
+  code         String?     @unique
   contactId    String?     @unique
   contact      Contact?    @relation(fields: [contactId], references: [id], onDelete: SetNull)
   displayName  String
@@ -187,6 +201,7 @@ model Location {
 
 model InventoryMovement {
   id            String                @id @default(cuid())
+  code          String?               @unique
   productId     String
   product       Product               @relation(fields: [productId], references: [id], onDelete: Restrict)
   locationId    String
@@ -322,7 +337,82 @@ model CommercialSettings {
   hoursPerCycle           Decimal  @default(8) @db.Decimal(8, 3)
   validityDays            Int      @default(30)
   dayAdjustments          Json     @default("[]")
+  // NONE keeps the V2 workbook result; UP_* rounds the pre-tax price up to the step.
+  priceRounding           String   @default("NONE")
+  defaultFiringType       String   @default("SHARED")
+  defaultLowFiringEnabled Boolean  @default(true)
+  defaultHighFiringEnabled Boolean @default(true)
+  defaultLowKilnId        String?
+  defaultHighKilnId       String?
   updatedAt               DateTime @updatedAt
+}
+
+model CompanyProfile {
+  id               String   @id @default("default")
+  legalName        String?
+  tradeName        String?
+  ruc              String?
+  address          String?
+  addressReference String?
+  ubigeoCode       String?
+  department       String?
+  province         String?
+  district         String?
+  country          String?
+  postalCode       String?
+  phone            String?
+  mobile           String?
+  email            String?
+  website          String?
+  contactName      String?
+  contactRole      String?
+  updatedAt        DateTime @updatedAt
+}
+
+model CompanyLogo {
+  id        String   @id @default("default")
+  data      Bytes
+  mimeType  String
+  fileName  String?
+  size      Int
+  sha256    String
+  updatedAt DateTime @updatedAt
+}
+
+model DocumentSettings {
+  id                String   @id @default("default")
+  showLogo          Boolean  @default(true)
+  showLegalName     Boolean  @default(true)
+  showRuc           Boolean  @default(true)
+  showAddress       Boolean  @default(true)
+  showPhones        Boolean  @default(true)
+  showEmail         Boolean  @default(true)
+  showWebsite       Boolean  @default(true)
+  validityText      String?
+  conditions        String?
+  observations      String?
+  estimatedTime     String?
+  paymentTerms      String?
+  bankName          String?
+  bankAccountHolder String?
+  bankAccount       String?
+  bankCci           String?
+  closingMessage    String?
+  showSignature     Boolean  @default(false)
+  signatureName     String?
+  signatureRole     String?
+  updatedAt         DateTime @updatedAt
+}
+
+model NumberSequence {
+  key         String   @id
+  label       String
+  prefix      String
+  padding     Int      @default(6)
+  yearly      Boolean  @default(false)
+  currentYear Int?
+  lastValue   Int      @default(0)
+  updatedAt   DateTime @default(now()) @updatedAt
 }
 
 model Quotation {
@@ -451,12 +541,6 @@ model QuotationTotals {
   igvAmount        Decimal?  @db.Decimal(24, 12)
   total            Decimal?  @db.Decimal(24, 12)
   unitPrice        Decimal?  @db.Decimal(24, 12)
-}
-
-model Sequence {
-  year      Int      @id
-  lastValue Int      @default(0)
-  updatedAt DateTime @updatedAt
 }
 
 model ImportBatch {

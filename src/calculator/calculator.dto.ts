@@ -1,4 +1,4 @@
-import { Transform, Type } from 'class-transformer';
+import { Transform, Type } from "class-transformer";
 import {
   ArrayMinSize,
   Max,
@@ -12,12 +12,13 @@ import {
   IsString,
   Min,
   ValidateNested,
-} from 'class-validator';
+} from "class-validator";
 
 function parseNumber(value: unknown): unknown {
-  if (typeof value !== 'string') return value;
+  if (typeof value !== "string") return value;
   const trimmed = value.trim();
-  if (!/^[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:e[+-]?\d+)?$/i.test(trimmed)) return value;
+  if (!/^[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:e[+-]?\d+)?$/i.test(trimmed))
+    return value;
   const parsed = Number(trimmed);
   return Number.isFinite(parsed) ? parsed : value;
 }
@@ -65,8 +66,8 @@ export class CalculatorLaborTaskDto {
 }
 
 export class CalculatorFiringDto {
-  @IsIn(['LOW', 'HIGH'])
-  stage!: 'LOW' | 'HIGH';
+  @IsIn(["LOW", "HIGH"])
+  stage!: "LOW" | "HIGH";
 
   @IsBoolean()
   enabled!: boolean;
@@ -75,8 +76,8 @@ export class CalculatorFiringDto {
   @IsString()
   kilnId?: string;
 
-  @IsIn(['SHARED', 'EXCLUSIVE'])
-  firingType!: 'SHARED' | 'EXCLUSIVE';
+  @IsIn(["SHARED", "EXCLUSIVE"])
+  firingType!: "SHARED" | "EXCLUSIVE";
 
   // Preserved for existing clients; firing occupancy is derived from volume and kiln capacity.
   @IsOptional()
