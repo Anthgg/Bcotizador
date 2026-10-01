@@ -1,0 +1,507 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum Role {
+  ADMIN
+  OPERARIO
+  TESTER
+}
+
+enum WorkerType {
+  INTERNAL
+  EXTERNAL
+}
+
+enum ProductType {
+  RAW_MATERIAL
+  PREPARED_MATERIAL
+  FINISHED_PRODUCT
+  SERVICE
+}
+
+enum InventoryMovementType {
+  OPENING_BALANCE
+  ENTRY
+  EXIT
+  ADJUSTMENT
+}
+
+enum TechniqueRule {
+  UN_FACTOR
+  DOS_FACTORES
+  SIMPLE
+}
+
+enum FiringStage {
+  LOW
+  HIGH
+}
+
+enum FiringType {
+  SHARED
+  EXCLUSIVE
+}
+
+enum QuotationStatus {
+  DRAFT
+  CONFIRMED
+  CANCELLED
+}
+
+enum CostStatus {
+  READY
+  COST_INCOMPLETE
+}
+
+enum ImportStatus {
+  PREVIEW
+  CONFIRMED
+  FAILED
+}
+
+model User {
+  id            String              @id @default(cuid())
+  email         String              @unique
+  displayName   String
+  passwordHash  String
+  role          Role                @default(TESTER)
+  isActive      Boolean             @default(true)
+  createdAt     DateTime            @default(now())
+  updatedAt     DateTime            @updatedAt
+  auditEvents   AuditEvent[]
+  movements     InventoryMovement[]
+  importBatches ImportBatch[]
+  quotations    Quotation[]
+}
+
+model ProductCategory {
+  id        String            @id @default(cuid())
+  name      String            @unique
+  parentId  String?
+  parent    ProductCategory?  @relation("CategoryTree", fields: [parentId], references: [id], onDelete: SetNull)
+  children  ProductCategory[] @relation("CategoryTree")
+  products  Product[]
+  createdAt DateTime          @default(now())
+  updatedAt DateTime          @updatedAt
+}
+
+model PosCategory {
+  id        String        @id @default(cuid())
+  name      String        @unique
+  parentId  String?
+  parent    PosCategory?  @relation("PosCategoryTree", fields: [parentId], references: [id], onDelete: SetNull)
+  children  PosCategory[] @relation("PosCategoryTree")
+  products  Product[]
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
+}
+
+model Product {
+  id                 String              @id @default(cuid())
+  internalReference  String?             @unique
+  name               String
+  productType        ProductType         @default(FINISHED_PRODUCT)
+  categoryId         String?
+  category           ProductCategory?    @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  posCategoryId      String?
+  posCategory        PosCategory?        @relation(fields: [posCategoryId], references: [id], onDelete: SetNull)
+  salesTax           Decimal?            @db.Decimal(8, 6)
+  purchaseTax        Decimal?            @db.Decimal(8, 6)
+  canSell            Boolean             @default(true)
+  canBuy             Boolean             @default(false)
+  posAvailable       Boolean             @default(false)
+  salePrice          Decimal?            @db.Decimal(24, 12)
+  unitCost           Decimal?            @db.Decimal(24, 12)
+  costPerGram        Decimal?            @db.Decimal(27, 15)
+  costUnit           String?
+  unit               String              @default("unit")
+  purchaseUnit       String?
+  isActive           Boolean             @default(true)
+  createdAt          DateTime            @default(now())
+  updatedAt          DateTime            @updatedAt
+  movements          InventoryMovement[]
+  outputRecipe       Recipe?             @relation("RecipeOutput")
+  recipeItems        RecipeItem[]        @relation("RecipeIngredient")
+  techniques         ProductTechnique[]
+  quotationItems     QuotationItem[]
+  quotationMaterials QuotationMaterial[]
+
+  @@index([name])
+  @@index([categoryId])
+  @@index([productType, isActive])
+}
+
+model Contact {
+  id                   String    @id @default(cuid())
+  displayName          String
+  identificationType   String?
+  identificationNumber String?   @unique
+  street               String?
+  district             String?
+  province             String?
+  department           String?
+  country              String?
+  email                String?
+  phone                String?
+  bankAccount          String?
+  bankName             String?
+  roles                String[]  @default([])
+  isActive             Boolean   @default(true)
+  customer             Customer?
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
+
+  @@index([displayName])
+  @@index([email])
+}
+
+model Customer {
+  id           String      @id @default(cuid())
+  contactId    String?     @unique
+  contact      Contact?    @relation(fields: [contactId], references: [id], onDelete: SetNull)
+  displayName  String
+  customerType String      @default("PORMENOR")
+  isActive     Boolean     @default(true)
+  quotations   Quotation[]
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+
+  @@index([displayName])
+  @@index([customerType])
+}
+
+model Location {
+  id        String              @id @default(cuid())
+  name      String              @unique
+  isActive  Boolean             @default(true)
+  movements InventoryMovement[]
+  createdAt DateTime            @default(now())
+  updatedAt DateTime            @updatedAt
+}
+
+model InventoryMovement {
+  id            String                @id @default(cuid())
+  productId     String
+  product       Product               @relation(fields: [productId], references: [id], onDelete: Restrict)
+  locationId    String
+  location      Location              @relation(fields: [locationId], references: [id], onDelete: Restrict)
+  type          InventoryMovementType
+  quantity      Decimal               @db.Decimal(24, 12)
+  unit          String
+  reason        String?
+  sourceKey     String?               @unique
+  importBatchId String?
+  importBatch   ImportBatch?          @relation(fields: [importBatchId], references: [id], onDelete: SetNull)
+  actorId       String?
+  actor         User?                 @relation(fields: [actorId], references: [id], onDelete: SetNull)
+  createdAt     DateTime              @default(now())
+
+  @@index([productId, locationId, createdAt])
+  @@index([importBatchId])
+}
+
+model Recipe {
+  id              String       @id @default(cuid())
+  outputProductId String       @unique
+  outputProduct   Product      @relation("RecipeOutput", fields: [outputProductId], references: [id], onDelete: Cascade)
+  yieldQuantity   Decimal      @db.Decimal(24, 12)
+  yieldUnit       String
+  items           RecipeItem[]
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+}
+
+model RecipeItem {
+  id                  String  @id @default(cuid())
+  recipeId            String
+  recipe              Recipe  @relation(fields: [recipeId], references: [id], onDelete: Cascade)
+  ingredientProductId String
+  ingredientProduct   Product @relation("RecipeIngredient", fields: [ingredientProductId], references: [id], onDelete: Restrict)
+  quantity            Decimal @db.Decimal(24, 12)
+  unit                String
+
+  @@index([recipeId])
+  @@index([ingredientProductId])
+}
+
+model Worker {
+  id              String               @id @default(cuid())
+  code            String?              @unique
+  name            String
+  workerType      WorkerType           @default(INTERNAL)
+  dailyRate       Decimal?             @db.Decimal(24, 12)
+  hoursPerDay     Decimal?             @default(8) @db.Decimal(8, 3)
+  isActive        Boolean              @default(true)
+  techniques      WorkerTechnique[]
+  defaultProducts ProductTechnique[]
+  laborTasks      QuotationLaborTask[]
+  createdAt       DateTime             @default(now())
+  updatedAt       DateTime             @updatedAt
+
+  @@index([name])
+}
+
+model Technique {
+  id         String               @id @default(cuid())
+  code       String?              @unique
+  name       String               @unique
+  rule       TechniqueRule        @default(SIMPLE)
+  factor1    Decimal?             @db.Decimal(24, 12)
+  factor2    Decimal?             @db.Decimal(24, 12)
+  cycleRate  Decimal?             @db.Decimal(24, 12)
+  isActive   Boolean              @default(true)
+  workers    WorkerTechnique[]
+  products   ProductTechnique[]
+  laborTasks QuotationLaborTask[]
+  createdAt  DateTime             @default(now())
+  updatedAt  DateTime             @updatedAt
+}
+
+model WorkerTechnique {
+  workerId        String
+  worker          Worker    @relation(fields: [workerId], references: [id], onDelete: Cascade)
+  techniqueId     String
+  technique       Technique @relation(fields: [techniqueId], references: [id], onDelete: Cascade)
+  factor1Override Decimal?  @db.Decimal(24, 12)
+  factor2Override Decimal?  @db.Decimal(24, 12)
+  rateOverride    Decimal?  @db.Decimal(24, 12)
+  isActive        Boolean   @default(true)
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  @@id([workerId, techniqueId])
+}
+
+model ProductTechnique {
+  productId       String
+  product         Product   @relation(fields: [productId], references: [id], onDelete: Cascade)
+  techniqueId     String
+  technique       Technique @relation(fields: [techniqueId], references: [id], onDelete: Cascade)
+  defaultWorkerId String?
+  defaultWorker   Worker?   @relation(fields: [defaultWorkerId], references: [id], onDelete: SetNull)
+  order           Int       @default(0)
+  isRequired      Boolean   @default(true)
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  @@id([productId, techniqueId])
+}
+
+model Kiln {
+  id          String            @id @default(cuid())
+  code        String?           @unique
+  name        String            @unique
+  class       String?
+  capacityCm3 Decimal           @db.Decimal(24, 12)
+  lowRate     Decimal           @db.Decimal(24, 12)
+  highRate    Decimal           @db.Decimal(24, 12)
+  isActive    Boolean           @default(true)
+  firings     QuotationFiring[]
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+}
+
+model CommercialSettings {
+  id                      String   @id @default("default")
+  glazeDefaultPct         Decimal  @default(0.15) @db.Decimal(8, 6)
+  separationXcm           Decimal  @default(3) @db.Decimal(8, 3)
+  separationYcm           Decimal  @default(3) @db.Decimal(8, 3)
+  separationZcm           Decimal  @default(3) @db.Decimal(8, 3)
+  productionFactorDefault Decimal  @default(3) @db.Decimal(12, 6)
+  productionFactorMin     Decimal  @default(2) @db.Decimal(12, 6)
+  igvRate                 Decimal  @default(0.18) @db.Decimal(8, 6)
+  rentPerDay              Decimal  @default(110) @db.Decimal(24, 12)
+  utilitiesPerDay         Decimal  @default(10) @db.Decimal(24, 12)
+  administrativeCost      Decimal  @default(200) @db.Decimal(24, 12)
+  hoursPerCycle           Decimal  @default(8) @db.Decimal(8, 3)
+  validityDays            Int      @default(30)
+  dayAdjustments          Json     @default("[]")
+  updatedAt               DateTime @updatedAt
+}
+
+model Quotation {
+  id               String           @id @default(cuid())
+  code             String?          @unique
+  status           QuotationStatus  @default(DRAFT)
+  costStatus       CostStatus       @default(READY)
+  customerId       String
+  customer         Customer         @relation(fields: [customerId], references: [id], onDelete: Restrict)
+  validityDays     Int              @default(30)
+  productionFactor Decimal          @db.Decimal(12, 6)
+  productionDays   Decimal          @db.Decimal(12, 6)
+  materialCost     Decimal?         @db.Decimal(24, 12)
+  laborCost        Decimal?         @db.Decimal(24, 12)
+  firingCost       Decimal?         @db.Decimal(24, 12)
+  technicalCost    Decimal?         @db.Decimal(24, 12)
+  otherCosts       Decimal?         @db.Decimal(24, 12)
+  subtotal         Decimal?         @db.Decimal(24, 12)
+  igvRate          Decimal          @db.Decimal(8, 6)
+  igvAmount        Decimal?         @db.Decimal(24, 12)
+  total            Decimal?         @db.Decimal(24, 12)
+  unitPrice        Decimal?         @db.Decimal(24, 12)
+  inputSnapshot    Json
+  economicSnapshot Json?
+  createdById      String?
+  createdBy        User?            @relation(fields: [createdById], references: [id], onDelete: SetNull)
+  confirmedAt      DateTime?
+  cancelledAt      DateTime?
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
+  items            QuotationItem[]
+  totals           QuotationTotals?
+
+  @@index([status, createdAt])
+  @@index([customerId, createdAt])
+}
+
+model QuotationItem {
+  id            String               @id @default(cuid())
+  quotationId   String
+  quotation     Quotation            @relation(fields: [quotationId], references: [id], onDelete: Cascade)
+  productId     String?
+  product       Product?             @relation(fields: [productId], references: [id], onDelete: SetNull)
+  name          String
+  quantity      Decimal              @db.Decimal(24, 12)
+  lengthCm      Decimal?             @db.Decimal(24, 12)
+  widthCm       Decimal?             @db.Decimal(24, 12)
+  heightCm      Decimal?             @db.Decimal(24, 12)
+  clayWeightG   Decimal              @db.Decimal(24, 12)
+  materials     QuotationMaterial[]
+  laborTasks    QuotationLaborTask[]
+  firings       QuotationFiring[]
+  materialCost  Decimal?             @db.Decimal(24, 12)
+  laborCost     Decimal?             @db.Decimal(24, 12)
+  firingCost    Decimal?             @db.Decimal(24, 12)
+  unitPrice     Decimal?             @db.Decimal(24, 12)
+  lineTotal     Decimal?             @db.Decimal(24, 12)
+  inputSnapshot Json
+  createdAt     DateTime             @default(now())
+}
+
+model QuotationMaterial {
+  id              String        @id @default(cuid())
+  quotationItemId String
+  quotationItem   QuotationItem @relation(fields: [quotationItemId], references: [id], onDelete: Cascade)
+  materialType    String
+  productId       String?
+  product         Product?      @relation(fields: [productId], references: [id], onDelete: SetNull)
+  productName     String?
+  quantity        Decimal       @db.Decimal(24, 12)
+  unit            String
+  appliedUnitCost Decimal?      @db.Decimal(27, 15)
+  cost            Decimal?      @db.Decimal(24, 12)
+}
+
+model QuotationLaborTask {
+  id              String        @id @default(cuid())
+  quotationItemId String
+  quotationItem   QuotationItem @relation(fields: [quotationItemId], references: [id], onDelete: Cascade)
+  workerId        String?
+  worker          Worker?       @relation(fields: [workerId], references: [id], onDelete: SetNull)
+  techniqueId     String
+  technique       Technique     @relation(fields: [techniqueId], references: [id], onDelete: Restrict)
+  workerName      String?
+  techniqueName   String
+  quantity        Decimal       @db.Decimal(24, 12)
+  factor1         Decimal?      @db.Decimal(24, 12)
+  factor2         Decimal?      @db.Decimal(24, 12)
+  cycles          Decimal?      @db.Decimal(24, 12)
+  calculatedHours Decimal?      @db.Decimal(24, 12)
+  appliedHours    Decimal?      @db.Decimal(24, 12)
+  rateOverride    Decimal?      @db.Decimal(24, 12)
+  rate            Decimal?      @db.Decimal(24, 12)
+  cost            Decimal?      @db.Decimal(24, 12)
+}
+
+model QuotationFiring {
+  id              String        @id @default(cuid())
+  quotationItemId String
+  quotationItem   QuotationItem @relation(fields: [quotationItemId], references: [id], onDelete: Cascade)
+  stage           FiringStage
+  firingType      FiringType
+  kilnId          String?
+  kiln            Kiln?         @relation(fields: [kilnId], references: [id], onDelete: SetNull)
+  kilnName        String?
+  capacityCm3     Decimal?      @db.Decimal(24, 12)
+  tariff          Decimal?      @db.Decimal(24, 12)
+  occupancy       Decimal?      @db.Decimal(12, 8)
+  batches         Decimal?      @db.Decimal(24, 12)
+  volumeCm3       Decimal       @db.Decimal(24, 12)
+  cost            Decimal?      @db.Decimal(24, 12)
+}
+
+model QuotationTotals {
+  quotationId      String    @id
+  quotation        Quotation @relation(fields: [quotationId], references: [id], onDelete: Cascade)
+  materialCost     Decimal?  @db.Decimal(24, 12)
+  laborCost        Decimal?  @db.Decimal(24, 12)
+  firingCost       Decimal?  @db.Decimal(24, 12)
+  technicalCost    Decimal?  @db.Decimal(24, 12)
+  productionFactor Decimal   @db.Decimal(12, 6)
+  productionDays   Decimal   @db.Decimal(12, 6)
+  otherCosts       Decimal?  @db.Decimal(24, 12)
+  subtotal         Decimal?  @db.Decimal(24, 12)
+  igvRate          Decimal   @db.Decimal(8, 6)
+  igvAmount        Decimal?  @db.Decimal(24, 12)
+  total            Decimal?  @db.Decimal(24, 12)
+  unitPrice        Decimal?  @db.Decimal(24, 12)
+}
+
+model Sequence {
+  year      Int      @id
+  lastValue Int      @default(0)
+  updatedAt DateTime @updatedAt
+}
+
+model ImportBatch {
+  id          String              @id @default(cuid())
+  fileName    String
+  sha256      String              @unique
+  status      ImportStatus        @default(PREVIEW)
+  preview     Json
+  rawData     Json
+  createdById String?
+  createdBy   User?               @relation(fields: [createdById], references: [id], onDelete: SetNull)
+  movements   InventoryMovement[]
+  errors      ImportError[]
+  confirmedAt DateTime?
+  createdAt   DateTime            @default(now())
+
+  @@index([status, createdAt])
+}
+
+model ImportError {
+  id         String      @id @default(cuid())
+  batchId    String
+  batch      ImportBatch @relation(fields: [batchId], references: [id], onDelete: Cascade)
+  sheet      String
+  rowNumber  Int?
+  severity   String
+  code       String
+  message    String
+  resolution String?
+  createdAt  DateTime    @default(now())
+
+  @@index([batchId, severity])
+}
+
+model AuditEvent {
+  id         String   @id @default(cuid())
+  actorId    String?
+  actor      User?    @relation(fields: [actorId], references: [id], onDelete: SetNull)
+  action     String
+  entity     String
+  entityId   String
+  beforeJson Json?
+  afterJson  Json?
+  createdAt  DateTime @default(now())
+
+  @@index([entity, entityId, createdAt])
+  @@index([actorId, createdAt])
+}

@@ -1,0 +1,52 @@
+name: greda
+
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: greda-db
+    environment:
+      POSTGRES_DB: greda
+      POSTGRES_USER: greda
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+    volumes:
+      - greda-db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U greda -d greda"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+      start_period: 5s
+
+  backend:
+    container_name: greda-back
+    build:
+      context: .
+      dockerfile: Dockerfile
+    environment:
+      NODE_ENV: production
+      PORT: "3000"
+      DATABASE_URL: postgresql://greda:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}@db:5432/greda?schema=public
+      JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET in .env}
+      JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-8h}
+      CORS_ORIGINS: http://127.0.0.1:8081,http://localhost:8081
+      TRUST_PROXY: "1"
+      BOOTSTRAP_SECRET: ${BOOTSTRAP_SECRET:?Set BOOTSTRAP_SECRET in .env}
+      MAX_UPLOAD_MB: "20"
+    expose:
+      - "3000"
+    depends_on:
+      db:
+        condition: service_healthy
+
+  frontend:
+    container_name: greda-front
+    build:
+      context: ../cotizador
+      dockerfile: Dockerfile
+    ports:
+      - "127.0.0.1:8081:80"
+    depends_on:
+      - backend
+
+volumes:
+  greda-db-data:
