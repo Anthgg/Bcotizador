@@ -135,6 +135,12 @@ test('rule fixture B: two lines, three manual tasks and a worker technique rate 
     ], firings: [] },
   ] });
   assert.equal(result.status, 'READY');
+  assert.equal(result.lines[0].laborTasks[0].factor1Source, 'TECHNIQUE');
+  assert.equal(result.lines[0].laborTasks[0].rateSource, 'TECHNIQUE');
+  assert.equal(result.lines[0].laborTasks[0].appliedHoursSource, 'CALCULATED');
+  assert.equal(result.lines[1].laborTasks[0].factor1Source, 'TECHNIQUE');
+  assert.equal(result.lines[1].laborTasks[0].factor2Source, 'TECHNIQUE');
+  assert.equal(result.lines[1].laborTasks[0].rateSource, 'WORKER_TECHNIQUE');
   closeTo(result.totals.materialCost, '25.9777094931');
   closeTo(result.totals.laborCost, '660');
   closeTo(result.totals.firingCost, '0');
