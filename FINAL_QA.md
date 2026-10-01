@@ -2,41 +2,84 @@
 
 STATUS: BLOCKED
 
-## Repositories and local runtime
+BACKEND_PATH: C:\Users\anthg\bcotizador
+BACKEND_REPO: https://github.com/Anthgg/Bcotizador.git
+BACKEND_COMMIT: 3dd8556
 
-- BACKEND_PATH: `C:\Users\anthg\bcotizador`
-- BACKEND_COMMIT: `95545fe` (local implementation commit; push awaits the remaining authenticated QA).
-- BACKEND_REMOTE: `https://github.com/Anthgg/Bcotizador.git`
-- FRONTEND_PATH: `C:\Users\anthg\cotizador`
-- FRONTEND_COMMIT: `d9818ac` (local implementation commit; push awaits the remaining authenticated QA).
-- FRONTEND_REMOTE: `https://github.com/Anthgg/cotizador.git`
-- LOCAL_URL: `http://127.0.0.1:8081`
-- HOST_PORT_ONLY: `8081`, bound to `127.0.0.1`.
-- Carpintería remains on `http://127.0.0.1:8080`; its root returned HTTP 200. Inventario was left untouched.
-- No Cloud Run, Supabase, or other remote deployment was performed.
+FRONTEND_PATH: C:\Users\anthg\cotizador
+FRONTEND_REPO: https://github.com/Anthgg/cotizador.git
+FRONTEND_COMMIT: 8b2b37a
 
-## Legacy project preservation
+LOCAL_URL: http://127.0.0.1:8081
+ONLY_HOST_PORT: 8081
+OLD_GREDA_DOCKER_REMOVED: YES (no legacy GREDA containers, images, volumes, or networks remain)
+OLD_GREDA_CODE_REMOVED: NO (legacy roots preserved as later instructed; 39 linked worktrees had already been removed)
 
-- Legacy GREDA Docker inventory: 0 old containers, 0 old images, 0 old volumes, and 0 old networks. The running GREDA resources belong to the new local Compose stack.
-- The current instruction is to preserve legacy projects. The main roots `C:\Users\anthg\BGreda` and `C:\Users\anthg\FGreda` remain. All 39 linked worktrees had already been removed in the preceding turn before this instruction; no further legacy project cleanup will be performed.
-- Preserved `C:\Users\anthg\bcotizador\bdxls` and both source workbooks.
+MASTER_UPLOAD: PASS (local import confirmed and repeat import was idempotent)
+MASTER_PRODUCTS: 265
+MASTER_CONTACTS: 15
+MASTER_RECIPES: 92 recipe groups
+MASTER_STOCK_ROWS: 9 source rows; 2 exact matches and 7 unresolved rows
+PRODUCTS_WITHOUT_STOCK_VISIBLE_AS_ZERO: PASS
+PRODUCT_INVENTORY_LINK: PASS
+PRODUCT_RECIPE_LINK: PASS
+RECIPE_COSTING: PASS
+WORKERS: PASS
+TECHNIQUES: PASS
+WORKER_TECHNIQUES: PASS
+LEGACY_TECHNIQUE_FACTORS: PASS (not applied)
+ADDITIONALS_CONVERTED_TO_WORK: PASS
+AUTOMATIC_LABOR_CALCULATION: PASS
+LABOR_OVERRIDE: PASS
+KILNS_CM3: PASS
+KILN_FACTOR_APPLIED: NO
+SHARED_FIRING: PASS
+EXCLUSIVE_FIRING: PASS
+LOW_FIRING: PASS
+HIGH_FIRING: PASS
+MATERIALS: PASS
+GLAZE_15_PERCENT_DEFAULT: PASS
+PRODUCTION_FACTOR: PASS
+QUOTER_COMPLETE: PASS
+EXCEL_PARITY: PASS (fixtures A, B, and C)
+QUOTATIONS: PASS
+IMMUTABLE_CONFIRMED_SNAPSHOT: PASS
+PDF: PASS
+AUDIT_BEFORE_AFTER: PASS
+RBAC: PASS
+BACKEND_TESTS: 39/39 passed
+FRONTEND_TESTS: 20/20 passed
+PLAYWRIGHT: 10/10 passed
 
-## Workbook import
+MANUAL_BUTTON_BY_BUTTON: FAIL (the exhaustive literal manual sweep is still pending; automated E2E coverage is recorded separately)
+VIEWPORT_375: PASS
+VIEWPORT_768: PASS
+VIEWPORT_1024: PASS
+VIEWPORT_1280: PASS
+VIEWPORT_1440: PASS
+CONSOLE_ERRORS: 0
+PAGE_ERRORS: 0
+NETWORK_5XX: 0
+UNEXPECTED_4XX: 0
+CORS_ERRORS: 0
+REACT_DOCTOR: 0 errors; 35 warnings, including 3 security-category findings
+LIGHTHOUSE_DESKTOP: performance 98; accessibility 100; best practices 100; SEO 63; agentic 50
+LIGHTHOUSE_MOBILE: performance 74; accessibility 100; best practices 100; SEO 66; agentic 50
+SUPABASE_TOUCHED: NO
+CLOUD_RUN_TOUCHED: NO
+READY_FOR_USER_LOCAL_REVIEW: YES
+BLOCKERS: exhaustive manual button-by-button review remains pending; legacy code roots were preserved per the later instruction
+NEXT_ACTION: USER_LOCAL_REVIEW
+FINAL: BLOCKED
 
-Read-only parsing of `bdxls/Carga de maestros - Taller.xlsx` through the built backend service found 265 products, 15 contacts, 16 hierarchical categories, 92 recipe groups, and 9 stock rows. The category paths resolve; source categories and recipe outputs classify products as raw, prepared, finished, or service. Two stock rows match exactly; seven remain unresolved and are not guessed. `Recetas` row 420 is reported as `SOURCE_CONFLICT`; that ambiguous block is excluded from the preview and does not leak ingredients into the preceding recipe. The separate quotation workbook is not a master-import workbook.
+## Local evidence
 
-Persisted/imported rows: 0. No browser preview was confirmed or imported.
-
-## QA evidence
-
-- Backend: 23/23 tests; typecheck, lint, build, Prisma validate/generate passed. Coverage includes exact V2 workbook outputs, separate geometric and operational volumes, task-level rate/applied-hours overrides, and the returned labor-value source labels. Full and production-only `npm audit` reported 0 vulnerabilities.
-- Frontend: 6/6 tests; typecheck, lint, build passed. Coverage includes percentage-to-fraction glaze conversion, dimensions for master products, labor overrides, source-labelled labor results, and server-returned firing and volume details. `npm audit` reported 0 vulnerabilities.
-- Playwright: unauthenticated protected-route redirect passed (1/1).
-- Local HTTP: after recreating only the GREDA backend and frontend services, GREDA `:8081` returned 200 and `/api/health` returned `status: ok`, `database: ok`. Carpintería `:8080` also returned 200.
-- `git diff --check` passed for both repositories. `.env` and XLSX source files are not tracked; only `.env.example` is tracked.
-- `docker compose build backend frontend` passed with the current source. Only GREDA backend and frontend containers were recreated; the local database and Carpintería were left running.
-- A read-only look at the already-open GREDA browser tab showed an `ADMIN` session label while the Users page listed one active `TESTER`. The backend guard takes the signed role from the JWT, so this session does not prove there is a current ADMIN record. No write workflow was run through that stale/inconsistent session.
-
-## Remaining gates
-
-The latest read-only database snapshot found one active `TESTER` user and no `ADMIN`. The first-admin dialog was observed earlier while the user table was empty; the current bootstrap endpoint refuses additional creation on a non-empty table. Credentials and password hashes were not read or handled. A previously issued JWT still presents an ADMIN claim even though the database row is TESTER; do not use it as evidence of current-role authorization. The nullable `rateOverride` migration is applied locally and the new GREDA images are running on port 8081. Authenticated navigation at required responsive widths, master-import preview and confirmation, quotation save/confirm/PDF, manual module walkthrough, and authenticated Playwright E2E remain unverified until the user supplies a valid ADMIN session or directs a safe recovery path. Then review and push the commits to both repositories. Preserve the legacy roots and do not deploy.
+- GREDA is healthy at 127.0.0.1:8081. Carpintería remains healthy at 127.0.0.1:8080; Inventario was untouched. Only GREDA frontend port 8081 is published on the host.
+- The dedicated local test account has ADMIN role. No credential is recorded here.
+- The workbook contains 265 products, 15 contacts, 16 hierarchical categories, 92 recipe groups, and 9 stock rows. The import warning set includes 7 unmatched stock rows and SOURCE_CONFLICT at Recetas row 420; ambiguous source data was not guessed.
+- The 10 authenticated Playwright tests passed, including responsive coverage at all five widths, quotation save/confirm/PDF, settings persistence and audit history, users, recipes, catalog workflows, and error states.
+- The downloaded quotation PDF has a valid PDF header. The embedded preview rendered gray during prior browser review; the downloaded PDF was valid.
+- The importer reported 153 review rows (146 warnings and 7 unmatched stock rows); 167 ImportError records remain in the local database for unresolved or invalid source rows.
+- React Doctor reported 35 warnings and no errors. Its security-category findings include sessionStorage token storage and unsandboxed document preview iframes; Lighthouse results are recorded above.
+- Local QA data created during the authenticated E2E and workbook import remains in the local database. No production or cloud data was touched.
+- The exhaustive manual button-by-button pass has not been completed, so this report remains BLOCKED for user local review.
