@@ -75,6 +75,8 @@ test('task rate override takes precedence and scales with applied hours', async 
   assert.equal(result.status, 'READY');
   closeTo(result.lines[0].laborTasks[0].rateOverride, '75');
   closeTo(result.lines[0].laborTasks[0].rate, '75');
+  assert.equal(result.lines[0].laborTasks[0].rateSource, 'OVERRIDE');
+  assert.equal(result.lines[0].laborTasks[0].appliedHoursSource, 'OVERRIDE');
   closeTo(result.lines[0].laborTasks[0].cost, '75');
   closeTo(result.totals.laborCost, '75');
 });

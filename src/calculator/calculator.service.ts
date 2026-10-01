@@ -141,6 +141,8 @@ export class CalculatorService {
         }
         const f1 = task.factor1 ?? relation?.factor1Override?.toString() ?? technique.factor1?.toString() ?? null;
         const f2 = task.factor2 ?? relation?.factor2Override?.toString() ?? technique.factor2?.toString() ?? null;
+        const factor1Source = task.factor1 != null ? 'OVERRIDE' : relation?.factor1Override != null ? 'WORKER_TECHNIQUE' : 'TECHNIQUE';
+        const factor2Source = task.factor2 != null ? 'OVERRIDE' : relation?.factor2Override != null ? 'WORKER_TECHNIQUE' : 'TECHNIQUE';
         let cycles: Decimal | null = null;
         try { cycles = calculateLaborCycles(technique.rule, taskQty, f1, f2); }
         catch (e) { incomplete('FACTORS_MISSING', (e as Error).message, taskPath, 'labor'); lineLaborKnown = false; cyclesKnown = false; }
@@ -152,6 +154,9 @@ export class CalculatorService {
         if (rate == null && worker?.dailyRate != null && worker?.hoursPerDay != null && dec(worker.hoursPerDay.toString()).gt(0)) {
           rate = dec(worker.dailyRate.toString()).div(dec(worker.hoursPerDay.toString())).mul(hoursPerCycle);
         }
+        const rateSource = taskRateOverride != null ? 'OVERRIDE'
+          : relation?.rateOverride != null ? 'WORKER_TECHNIQUE'
+            : technique.cycleRate != null ? 'TECHNIQUE' : rate != null ? 'WORKER' : 'MISSING';
         if (rate == null) { incomplete('RATE_MISSING', 'Falta tarifa por ciclo de la técnica o del trabajador', taskPath, 'labor'); lineLaborKnown = false; }
         const cost = cycles != null && rate != null
           ? (task.appliedHours != null && cycles.mul(hoursPerCycle).gt(0)
@@ -166,9 +171,11 @@ export class CalculatorService {
         laborRows.push({
           workerId: task.workerId ?? null, workerName: worker?.name ?? task.workerName ?? null,
           techniqueId: technique.id, techniqueName: technique.name, quantity: fmt(taskQty),
-          factor1: f1 == null ? null : fmt(dec(f1)), factor2: f2 == null ? null : fmt(dec(f2)),
+          factor1: f1 == null ? null : fmt(dec(f1)), factor1Source,
+          factor2: f2 == null ? null : fmt(dec(f2)), factor2Source,
           cycles: fmt(cycles), calculatedHours: fmt(calculatedHours), appliedHours: fmt(appliedHours),
-          rateOverride: fmt(taskRateOverride), rate: fmt(rate), cost: fmt(cost),
+          appliedHoursSource: task.appliedHours != null ? 'OVERRIDE' : 'CALCULATED',
+          rateOverride: fmt(taskRateOverride), rate: fmt(rate), rateSource, cost: fmt(cost),
         });
       }
 
