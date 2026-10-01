@@ -5,10 +5,10 @@ STATUS: BLOCKED
 ## Repositories and local runtime
 
 - BACKEND_PATH: `C:\Users\anthg\bcotizador`
-- BACKEND_COMMIT: `d7b4ade` (local implementation commit; push awaits the remaining authenticated QA).
+- BACKEND_COMMIT: `95545fe` (local implementation commit; push awaits the remaining authenticated QA).
 - BACKEND_REMOTE: `https://github.com/Anthgg/Bcotizador.git`
 - FRONTEND_PATH: `C:\Users\anthg\cotizador`
-- FRONTEND_COMMIT: `ebd2609` (local implementation commit; push awaits the remaining authenticated QA).
+- FRONTEND_COMMIT: `d9818ac` (local implementation commit; push awaits the remaining authenticated QA).
 - FRONTEND_REMOTE: `https://github.com/Anthgg/cotizador.git`
 - LOCAL_URL: `http://127.0.0.1:8081`
 - HOST_PORT_ONLY: `8081`, bound to `127.0.0.1`.
@@ -29,13 +29,14 @@ Persisted/imported rows: 0. No browser preview was confirmed or imported.
 
 ## QA evidence
 
-- Backend: 23/23 tests; typecheck, lint, build, Prisma validate/generate passed. Coverage includes exact V2 workbook outputs, separate geometric and operational volumes, and task-level rate/applied-hours overrides. Full and production-only `npm audit` reported 0 vulnerabilities.
-- Frontend: 6/6 tests; typecheck, lint, build passed. Coverage includes percentage-to-fraction glaze conversion, dimensions for master products, labor overrides, and server-returned firing and volume details. `npm audit` reported 0 vulnerabilities.
+- Backend: 23/23 tests; typecheck, lint, build, Prisma validate/generate passed. Coverage includes exact V2 workbook outputs, separate geometric and operational volumes, task-level rate/applied-hours overrides, and the returned labor-value source labels. Full and production-only `npm audit` reported 0 vulnerabilities.
+- Frontend: 6/6 tests; typecheck, lint, build passed. Coverage includes percentage-to-fraction glaze conversion, dimensions for master products, labor overrides, source-labelled labor results, and server-returned firing and volume details. `npm audit` reported 0 vulnerabilities.
 - Playwright: unauthenticated protected-route redirect passed (1/1).
-- Local HTTP: GREDA `:8081` and Carpintería `:8080` returned 200; GREDA `/api/health` returned 200.
+- Local HTTP: after recreating only the GREDA backend and frontend services, GREDA `:8081` returned 200 and `/api/health` returned `status: ok`, `database: ok`. Carpintería `:8080` also returned 200.
 - `git diff --check` passed for both repositories. `.env` and XLSX source files are not tracked; only `.env.example` is tracked.
-- `docker compose build backend frontend` passed with the current source. Running backend and frontend containers still use their previous image IDs; recreation awaits ADMIN access or a user-directed recovery path.
+- `docker compose build backend frontend` passed with the current source. Only GREDA backend and frontend containers were recreated; the local database and Carpintería were left running.
+- A read-only look at the already-open GREDA browser tab showed an `ADMIN` session label while the Users page listed one active `TESTER`. The backend guard takes the signed role from the JWT, so this session does not prove there is a current ADMIN record. No write workflow was run through that stale/inconsistent session.
 
 ## Remaining gates
 
-The latest read-only database snapshot found one active `TESTER` user and no `ADMIN`. The first-admin dialog was observed earlier while the user table was empty; the current bootstrap endpoint refuses additional creation on a non-empty table. Credentials and password hashes were not read or handled. The nullable `rateOverride` migration is applied locally; current running containers still use their previous image IDs. Continue with an ADMIN session or a user-directed safe recovery path, then complete authenticated navigation at required responsive widths, master-import preview and confirmation, quotation save/confirm/PDF, manual module walkthrough, and authenticated Playwright E2E. After those gates, push the reviewed commits to both repositories. Preserve the legacy roots and do not deploy.
+The latest read-only database snapshot found one active `TESTER` user and no `ADMIN`. The first-admin dialog was observed earlier while the user table was empty; the current bootstrap endpoint refuses additional creation on a non-empty table. Credentials and password hashes were not read or handled. A previously issued JWT still presents an ADMIN claim even though the database row is TESTER; do not use it as evidence of current-role authorization. The nullable `rateOverride` migration is applied locally and the new GREDA images are running on port 8081. Authenticated navigation at required responsive widths, master-import preview and confirmation, quotation save/confirm/PDF, manual module walkthrough, and authenticated Playwright E2E remain unverified until the user supplies a valid ADMIN session or directs a safe recovery path. Then review and push the commits to both repositories. Preserve the legacy roots and do not deploy.
