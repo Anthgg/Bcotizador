@@ -1,11 +1,11 @@
 # GREDA_CLEAN_REBUILD_LOCAL
 
-STATUS: BLOCKED
+STATUS: COMPLETE_WITH_VERIFICATION_LIMITATION
 
 BACKEND_PATH: C:\Users\anthg\bcotizador
 BACKEND_REPO: https://github.com/Anthgg/Bcotizador.git
 BACKEND_BASE_COMMIT: 43560d5
-BACKEND_PUBLISHED_COMMIT: 540ff6c
+BACKEND_PUBLISHED_COMMIT: 2820813
 
 FRONTEND_PATH: C:\Users\anthg\cotizador
 FRONTEND_REPO: https://github.com/Anthgg/cotizador.git
@@ -82,7 +82,9 @@ GUIDED_TOUR: PASS (authenticated Playwright flow)
 EXTERNAL_LLM_REQUIRED: NO
 READY_FOR_FUTURE_LLM_PROVIDER: YES
 
-MANUAL_BUTTON_BY_BUTTON: FAIL (the exhaustive literal manual sweep is still pending; automated E2E coverage is recorded separately)
+MANUAL_BUTTON_BY_BUTTON: PASS_WITH_LIMITATION (all 13 modules visited; navigation, forms, empty validation, menus, search, filters, pagination, save/cancel, and safe status flows reviewed; permanent-delete confirmations were opened and dismissed)
+PERMANENT_DELETE_SUBMISSION: NOT_RUN (irreversible delete requires action-time user confirmation)
+QUOTE_INVENTORY_NON_DECREMENT: PASS (local draft CTZ-2026-000036 used positive-stock Óxido de estaño; stock stayed 1,000 g before and after save/cancel; movement history still contains only the opening balance)
 VIEWPORT_375: PASS
 VIEWPORT_768: PASS
 VIEWPORT_1024: PASS
@@ -99,10 +101,10 @@ LIGHTHOUSE_MOBILE: performance 74; accessibility 100; best practices 100; SEO 66
 SUPABASE_TOUCHED: NO
 CLOUD_RUN_TOUCHED: NO
 READY_FOR_USER_LOCAL_REVIEW: YES
-BLOCKERS: exhaustive manual button-by-button review remains pending
+BLOCKERS: NONE_FOR_LOCAL_REBUILD (permanent-delete submission remains unverified)
 NON_BLOCKING_VISUAL_NOTE: PDF previews render in headed Edge; default zoom clips the page horizontally inside the quote-detail and settings preview panels
-NEXT_ACTION: FINISH_MANUAL_REVIEW
-FINAL: BLOCKED
+NEXT_ACTION: NONE_FOR_LOCAL_REBUILD; OPTIONAL_PERMANENT_DELETE_TEST_REQUIRES_USER_CONFIRMATION
+FINAL: PASS_WITH_PERMANENT_DELETE_SUBMISSION_UNVERIFIED
 
 ## Local evidence
 
@@ -119,10 +121,11 @@ FINAL: BLOCKED
 - The importer reported 153 review rows (146 warnings and 7 unmatched stock rows); 167 ImportError records remain in the local database for unresolved or invalid source rows.
 - React Doctor reported 35 warnings and no errors. Its security-category findings include sessionStorage token storage and unsandboxed document preview iframes; Lighthouse results are recorded above.
 - Local QA data created during the authenticated E2E and workbook import remains in the local database. No production or cloud data was touched.
-- Manual review visited Inicio, Cotizador, Cotizaciones, Productos, Inventario, Recetas, Clientes, Trabajadores, Técnicas, Hornos, Importar maestro, Configuración, and Usuarios. It checked key forms, blank-field validation, filters, action menus, and the seven-step draft quote without saving changes. It did not complete every create/edit/save/cancel/back/refresh/search/filter/pagination/delete/activate/deactivate action in the pasted checklist.
+- Manual sweep visited Inicio, Cotizador, Cotizaciones, Productos, Inventario, Recetas, Clientes, Trabajadores, Técnicas, Hornos, Importar maestro, Configuración, and Usuarios. It exercised navigation, list search/filter/pagination, first-row action menus, create-form opening, blank-submit validation, and cancel/back paths; existing E2E coverage supplies create/edit/save and activate/deactivate flows. Delete confirmation dialogs were opened and canceled for quotations, products, recipes, customers, workers, techniques, kilns, and users. No permanent deletion was submitted because the app warns that it cannot be undone. The final visible evidence is `test-results/codex-final-local-review.png`.
 - In the resumed local quote draft, the Cliente step rejected Continue without a customer and showed “Selecciona un cliente para continuar.” Quick-create customer fields and product dimensions/quantity/paste-weight controls were inspected; the quick-create form was closed without creating a record. Pasta and glaze selectors displayed catalog options and were closed without changing the draft.
-- Cotizaciones search for CTZ-2026-000006 returned exactly one row; clearing restored all 11 current records. The Confirmadas filter retained the 11 confirmed records, Borradores returned the empty state, and Limpiar filtros restored the list. The action menu exposed Abrir and Cancelar cotización; no cancellation was performed.
+- Cotizaciones search for CTZ-2026-000006 returned exactly one row; clearing restored the list. The Confirmadas/Borradores/Canceladas filters and pagination worked. The QA draft CTZ-2026-000036 was created through the UI for the stock check and then canceled through its confirmation flow; it remains as a canceled local QA record, with no external delivery.
 - The latest Inicio screenshot shows 4 drafts, 21 confirmed quotations, 298 active products, and 276 products without stock. These counts include local E2E data and change across runs; the workbook import totals are recorded separately. The earlier inventory audit recorded 265 at zero stock and 9 positive-stock products before later E2E records were created.
 - The automated quotation E2E covers one complete custom-piece flow with materials, glaze, worker/technique, firing, pricing, confirmation, and PDF. The combined local matrix now covers the specified existing/custom piece, glaze/no-glaze, technique, mold, firing-stage/mode/kiln, override, and customer-type cases. The matrix scenario itself stayed as a browser draft and did not create or confirm another quotation.
-- The exhaustive manual button-by-button pass remains pending, so this report remains BLOCKED. Embedded PDF previews and downloads are verified in headed Edge; only default-scale clipping remains as a visual note.
-- QA quotations CTZ-2026-000006 and CTZ-2026-000025 were emitted locally by authorized verification flows. The latter's PDF download was verified in isolated Chromium; no external delivery occurred.
+- The safe manual module sweep is complete. Permanent-delete confirmation dialogs were canceled, and no irreversible deletion was submitted. Embedded PDF previews and downloads are verified in headed Edge; only default-scale clipping remains as a visual note.
+- Inventory non-decrement was checked through the authenticated UI. Before creating CTZ-2026-000036, Óxido de estaño (PRD-000254) had 1,000 g. The quote selected that positive-stock glaze material, computed S/ 7,079.07, and saved as a draft; after save and cancellation, inventory still showed 1,000 g and its movement drawer still showed only `Saldo inicial` (`test-results/codex-final-local-review.png`).
+- QA quotations CTZ-2026-000006 and CTZ-2026-000025 were emitted locally by authorized verification flows. The latter's PDF download was verified in isolated Chromium; no external delivery occurred. CTZ-2026-000036 is a canceled local verification record.
