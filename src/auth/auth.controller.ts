@@ -15,6 +15,12 @@ export class AuthController {
   async login(@Body() input: LoginDto) {
     return { data: await this.service.login(input) };
   }
+  /** Público: el login solo ofrece configurar el administrador en una instalación nueva. */
+  @Public()
+  @Get("bootstrap-status")
+  async bootstrapStatus() {
+    return { data: await this.service.bootstrapStatus() };
+  }
   @Public()
   @Post("bootstrap")
   async bootstrap(

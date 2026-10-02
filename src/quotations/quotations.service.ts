@@ -77,6 +77,11 @@ export class QuotationsService {
         productId: line.productId ?? null,
         name: line.name,
         quantity: line.quantity,
+        moldCount: source.moldCount ?? 1,
+        productionTimePerCycleMinutes:
+          source.productionTimePerCycleMinutes ??
+          line.productionTimePerCycleMinutes ??
+          "480",
         lengthCm: line.lengthCm,
         widthCm: line.widthCm,
         heightCm: line.heightCm,

@@ -231,7 +231,7 @@ test("relation allowlists accept supported fields and reject unknown or invalid 
   assert.doesNotThrow(() =>
     validateWorkerTechniqueBody({
       factor1Override: 10,
-      cycleRateOverride: "80",
+      productivityOverride: "1.2",
       isActive: true,
     }),
   );
@@ -248,8 +248,53 @@ test("relation allowlists accept supported fields and reject unknown or invalid 
     "no está permitido",
   );
   assertFieldIssue(
+    () => validateWorkerTechniqueBody({ rateOverride: 80 }),
+    "rateOverride",
+    "no está permitido",
+  );
+  assertFieldIssue(
+    () => validateWorkerTechniqueBody({ cycleRateOverride: 80 }),
+    "cycleRateOverride",
+    "no está permitido",
+  );
+  assertFieldIssue(
     () => validateProductTechniqueBody({ order: 1.5 }),
     "order",
     "número entero",
   );
+});
+
+test("worker technique assignments persist productivity overrides on create and update", async () => {
+  const calls: any[] = [];
+  const workerTechnique = {
+    findUnique: async () => (calls.length ? { id: "worker:technique" } : null),
+    upsert: async (args: any) => {
+      calls.push(args);
+      return calls.length === 1
+        ? { id: "worker:technique", ...args.create }
+        : { id: "worker:technique", ...args.update };
+    },
+  };
+  const prisma: any = {
+    $transaction: async (work: (tx: any) => Promise<any>) =>
+      work({ workerTechnique }),
+  };
+  const audit: any = { write: async () => undefined };
+  const service = new CatalogService(prisma, audit, {} as any);
+
+  await service.setWorkerTechnique(
+    "worker",
+    "technique",
+    { productivityOverride: 1.5 },
+    "admin",
+  );
+  await service.setWorkerTechnique(
+    "worker",
+    "technique",
+    { productivityOverride: 2 },
+    "admin",
+  );
+
+  assert.equal(calls[0].create.productivityOverride, 1.5);
+  assert.equal(calls[1].update.productivityOverride, 2);
 });

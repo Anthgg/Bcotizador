@@ -43,6 +43,12 @@ export class AuthService {
     };
     return { accessToken: await this.jwt.signAsync(safe), user: safe };
   }
+  async bootstrapStatus() {
+    const configured = Boolean(this.config.get<string>("BOOTSTRAP_SECRET"));
+    return {
+      bootstrapRequired: configured && (await this.prisma.user.count()) === 0,
+    };
+  }
   async bootstrap(input: BootstrapDto, suppliedSecret?: string) {
     const secret = this.config.get<string>("BOOTSTRAP_SECRET");
     if (!secret || !suppliedSecret || suppliedSecret !== secret)

@@ -362,6 +362,23 @@ export class CatalogService {
     delete data.createdAt;
     delete data.updatedAt;
     delete data.code;
+    if (resource === "workers") {
+      const workerType = data.workerType ?? before?.workerType;
+      const typeChanged =
+        data.workerType != null && data.workerType !== before?.workerType;
+      if (
+        data.billingMode == null &&
+        (!replacing || typeChanged)
+      ) {
+        data.billingMode =
+          workerType === "EXTERNAL" ? "HOURLY" : "INTERNAL_INCLUDED";
+      }
+      const billingMode = data.billingMode ?? before?.billingMode;
+      if (workerType === "EXTERNAL" && billingMode !== "HOURLY")
+        throw new BadRequestException(
+          "Un trabajador externo debe facturarse por hora.",
+        );
+    }
     if (
       resource === "recipes" &&
       Object.prototype.hasOwnProperty.call(body, "items")
@@ -506,6 +523,7 @@ export class CatalogService {
           techniqueId,
           factor1Override: relationBody.factor1Override ?? null,
           factor2Override: relationBody.factor2Override ?? null,
+          productivityOverride: relationBody.productivityOverride ?? null,
           rateOverride:
             relationBody.rateOverride ?? relationBody.cycleRateOverride ?? null,
           isActive: relationBody.isActive ?? true,
@@ -513,6 +531,7 @@ export class CatalogService {
         update: {
           factor1Override: relationBody.factor1Override ?? null,
           factor2Override: relationBody.factor2Override ?? null,
+          productivityOverride: relationBody.productivityOverride ?? null,
           rateOverride:
             relationBody.rateOverride ?? relationBody.cycleRateOverride ?? null,
           isActive: relationBody.isActive ?? true,

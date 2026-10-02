@@ -101,6 +101,18 @@ export class CalculatorItemDto {
   quantity!: number;
 
   @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  moldCount?: number;
+
+  @IsOptional()
+  @Numeric()
+  @IsNumber({ allowNaN: false, allowInfinity: false })
+  @IsPositive()
+  productionTimePerCycleMinutes?: number;
+
+  @IsOptional()
   @Numeric()
   @IsNumber({ allowNaN: false, allowInfinity: false })
   lengthCm?: number;

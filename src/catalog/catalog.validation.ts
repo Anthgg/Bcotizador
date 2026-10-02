@@ -174,6 +174,10 @@ const fields: Record<CatalogResource, Record<string, FieldRule>> = {
       values: ["INTERNAL", "EXTERNAL"],
       message: "Selecciona el tipo de trabajador.",
     }),
+    billingMode: rule("enum", "Forma de facturación", {
+      values: ["INTERNAL_INCLUDED", "HOURLY"],
+      message: "Selecciona cómo se cobra la mano de obra.",
+    }),
     dailyRate: money("La tarifa diaria"),
     hoursPerDay: rule("optionalNumber", "La jornada", { above: 0, max: 24 }),
     isActive: rule("boolean", "Activo"),
@@ -190,7 +194,9 @@ const fields: Record<CatalogResource, Record<string, FieldRule>> = {
     }),
     factor1: rule("optionalNumber", "El primer rendimiento", { above: 0 }),
     factor2: rule("optionalNumber", "El segundo rendimiento", { above: 0 }),
-    cycleRate: money("El costo por ciclo"),
+    cycleRate: rule("readonly", "Costo por ciclo", {
+      message: "La técnica determina tiempo y rendimiento; el costo depende del trabajador.",
+    }),
     isActive: rule("boolean", "Activa"),
   },
   kilns: {
@@ -544,8 +550,9 @@ export function validateWorkerTechniqueBody(
     factor2Override: rule("optionalNumber", "El segundo rendimiento", {
       above: 0,
     }),
-    rateOverride: money("La tarifa por ciclo"),
-    cycleRateOverride: money("La tarifa por ciclo"),
+    productivityOverride: rule("optionalNumber", "El multiplicador de productividad", {
+      above: 0,
+    }),
     isActive: rule("boolean", "Activa"),
   });
 }

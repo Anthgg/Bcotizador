@@ -20,22 +20,54 @@ export function calculateLaborCycles(
   quantity: Decimal.Value,
   factor1?: Decimal.Value | null,
   factor2?: Decimal.Value | null,
+  moldCount: Decimal.Value = 1,
+  productivity: Decimal.Value = 1,
 ): Decimal {
   const q = dec(quantity);
   if (q.isNegative())
     throw new BadRequestException(
       "La cantidad de trabajo no puede ser negativa",
     );
-  if (rule === TechniqueRule.SIMPLE) return q;
+  const molds = dec(moldCount);
+  const productivityFactor = dec(productivity);
+  if (!molds.isInteger() || molds.lte(0))
+    throw new BadRequestException("La cantidad de moldes debe ser un entero mayor que cero");
+  if (productivityFactor.lte(0))
+    throw new BadRequestException("La productividad debe ser mayor que cero");
+  const effectiveCapacity = molds.mul(productivityFactor);
+  if (rule === TechniqueRule.SIMPLE) return ceil(q.div(effectiveCapacity));
   if (!factor1 || dec(factor1).lte(0))
     throw new BadRequestException("Falta un factor válido para la técnica");
-  const first = ceil(q.div(dec(factor1)));
+  const first = ceil(q.div(dec(factor1).mul(effectiveCapacity)));
   if (rule === TechniqueRule.UN_FACTOR) return first;
   if (!factor2 || dec(factor2).lte(0))
     throw new BadRequestException(
       "Falta el segundo factor válido para la técnica",
     );
-  return first.plus(ceil(q.div(dec(factor2))));
+  return first.plus(ceil(q.div(dec(factor2).mul(effectiveCapacity))));
+}
+
+export function calculateMoldProduction(
+  quantity: Decimal.Value,
+  moldCount: Decimal.Value = 1,
+  productionTimePerCycleMinutes: Decimal.Value = 480,
+) {
+  const q = dec(quantity);
+  const molds = dec(moldCount);
+  const cycleMinutes = dec(productionTimePerCycleMinutes);
+  if (q.lte(0))
+    throw new BadRequestException("La cantidad debe ser mayor que cero");
+  if (!molds.isInteger() || molds.lte(0))
+    throw new BadRequestException("La cantidad de moldes debe ser un entero mayor que cero");
+  if (cycleMinutes.lte(0))
+    throw new BadRequestException("El tiempo por ciclo debe ser mayor que cero");
+  const cycles = ceil(q.div(molds));
+  const activeMinutes = cycles.mul(cycleMinutes);
+  return {
+    cycles,
+    activeMinutes,
+    activeHours: activeMinutes.div(60),
+  };
 }
 export function calculateFiringCost(
   type: FiringType,
@@ -107,6 +139,7 @@ export class CalculatorService {
       operationalVolumeTotal = new Decimal(0),
       dimensionsKnown = true;
     const lineRows: any[] = [];
+    const workerLaborTotals = new Map<string, any>();
     const sharedGroups = new Map<
       string,
       { stage: FiringStage; kiln: any; volume: Decimal; lineIndexes: number[] }
@@ -153,6 +186,15 @@ export class CalculatorService {
           "La cantidad de cada línea debe ser mayor que cero",
         );
       quantityTotal = quantityTotal.plus(q);
+      const moldCount = dec(line.moldCount ?? 1);
+      const productionTimePerCycleMinutes = dec(
+        line.productionTimePerCycleMinutes ?? hoursPerCycle.mul(60),
+      );
+      const moldProduction = calculateMoldProduction(
+        q,
+        moldCount,
+        productionTimePerCycleMinutes,
+      );
       const product = line.productId
         ? await this.prisma.product.findUnique({
             where: { id: line.productId },
@@ -270,6 +312,7 @@ export class CalculatorService {
         tasks = Array.isArray(line.laborTasks) ? line.laborTasks : [];
       let lineLabor = new Decimal(0),
         lineLaborKnown = true;
+      const lineWorkerHours = new Map<string, any>();
       for (let j = 0; j < tasks.length; j++) {
         const task = tasks[j] ?? {},
           taskPath = "items[" + i + "].laborTasks[" + j + "]";
@@ -349,9 +392,17 @@ export class CalculatorService {
             : relation?.factor2Override != null
               ? "WORKER_TECHNIQUE"
               : "TECHNIQUE";
+        const productivity = relation?.productivityOverride ?? 1;
         let cycles: Decimal | null = null;
         try {
-          cycles = calculateLaborCycles(technique.rule, taskQty, f1, f2);
+          cycles = calculateLaborCycles(
+            technique.rule,
+            taskQty,
+            f1,
+            f2,
+            moldCount,
+            productivity,
+          );
         } catch (e) {
           incomplete(
             "FACTORS_MISSING",
@@ -362,64 +413,28 @@ export class CalculatorService {
           lineLaborKnown = false;
           cyclesKnown = false;
         }
-        const taskRateOverride =
-          task.rateOverride == null ? null : dec(task.rateOverride);
-        if (taskRateOverride?.isNegative())
-          throw new BadRequestException(
-            "La tarifa aplicada no puede ser negativa",
-          );
-        let rate: Decimal | null = taskRateOverride;
-        if (rate == null && relation?.rateOverride != null)
-          rate = dec(relation.rateOverride.toString());
-        if (rate == null && technique.cycleRate != null)
-          rate = dec(technique.cycleRate.toString());
-        if (
-          rate == null &&
-          worker?.dailyRate != null &&
-          worker?.hoursPerDay != null &&
-          dec(worker.hoursPerDay.toString()).gt(0)
-        ) {
-          rate = dec(worker.dailyRate.toString())
-            .div(dec(worker.hoursPerDay.toString()))
-            .mul(hoursPerCycle);
-        }
-        const rateSource =
-          taskRateOverride != null
-            ? "OVERRIDE"
-            : relation?.rateOverride != null
-              ? "WORKER_TECHNIQUE"
-              : technique.cycleRate != null
-                ? "TECHNIQUE"
-                : rate != null
-                  ? "WORKER"
-                  : "MISSING";
-        if (rate == null) {
-          incomplete(
-            "RATE_MISSING",
-            "Falta tarifa por ciclo de la técnica o del trabajador",
-            taskPath,
-            "labor",
-          );
-          lineLaborKnown = false;
-        }
-        const cost =
-          cycles != null && rate != null
-            ? task.appliedHours != null && cycles.mul(hoursPerCycle).gt(0)
-              ? cycles
-                  .mul(rate)
-                  .mul(dec(task.appliedHours).div(cycles.mul(hoursPerCycle)))
-              : cycles.mul(rate)
-            : null;
         const calculatedHours =
-          cycles == null ? null : cycles.mul(hoursPerCycle);
+          cycles == null
+            ? null
+            : cycles.mul(productionTimePerCycleMinutes).div(60);
         const appliedHours =
           task.appliedHours != null ? dec(task.appliedHours) : calculatedHours;
         if (appliedHours?.isNegative())
           throw new BadRequestException(
             "Las horas aplicadas no pueden ser negativas",
           );
-        if (cycles) cyclesTotal = cyclesTotal.plus(cycles);
-        if (cost) lineLabor = lineLabor.plus(cost);
+        if (cycles != null) cyclesTotal = cyclesTotal.plus(cycles);
+        const assigned = !!worker && !!relation?.isActive;
+        if (assigned && appliedHours != null) {
+          const current = lineWorkerHours.get(worker.id) ?? {
+            worker,
+            hours: new Decimal(0),
+          };
+          current.hours = current.hours.plus(appliedHours);
+          lineWorkerHours.set(worker.id, current);
+        } else {
+          lineLaborKnown = false;
+        }
         laborRows.push({
           workerId: task.workerId ?? null,
           workerName: worker?.name ?? task.workerName ?? null,
@@ -435,11 +450,75 @@ export class CalculatorService {
           appliedHours: fmt(appliedHours),
           appliedHoursSource:
             task.appliedHours != null ? "OVERRIDE" : "CALCULATED",
-          rateOverride: fmt(taskRateOverride),
-          rate: fmt(rate),
-          rateSource,
-          cost: fmt(cost),
+          rateOverride: null,
+          rate: null,
+          rateSource: "WORKER",
+          cost: null,
         });
+      }
+
+      const laborWorkers: any[] = [];
+      for (const [workerId, group] of lineWorkerHours) {
+        const currentWorker = group.worker;
+        const billingMode =
+          currentWorker.billingMode ??
+          (currentWorker.workerType === "EXTERNAL"
+            ? "HOURLY"
+            : "INTERNAL_INCLUDED");
+        const included = billingMode === "INTERNAL_INCLUDED";
+        const hoursPerDay =
+          currentWorker.hoursPerDay == null
+            ? null
+            : dec(currentWorker.hoursPerDay.toString());
+        const dailyRate =
+          currentWorker.dailyRate == null
+            ? null
+            : dec(currentWorker.dailyRate.toString());
+        const hourlyRate =
+          dailyRate != null && hoursPerDay != null && hoursPerDay.gt(0)
+            ? dailyRate.div(hoursPerDay)
+            : null;
+        let workerCost: Decimal | null = new Decimal(0);
+        if (!included && hourlyRate == null) {
+          incomplete(
+            "RATE_MISSING",
+            "Falta tarifa diaria u horas por jornada para calcular la tarifa por hora",
+            "items[" + i + "].laborTasks",
+            "labor",
+          );
+          lineLaborKnown = false;
+          workerCost = null;
+        } else if (!included) {
+          workerCost = group.hours.mul(hourlyRate!);
+        }
+        if (workerCost != null) lineLabor = lineLabor.plus(workerCost);
+        laborWorkers.push({
+          workerId,
+          workerName: currentWorker.name,
+          workerType: currentWorker.workerType,
+          billingMode,
+          dailyRate: fmt(dailyRate),
+          hoursPerDay: fmt(hoursPerDay),
+          hourlyRate: included ? null : fmt(hourlyRate),
+          totalHours: fmt(group.hours),
+          cost: fmt(workerCost),
+        });
+        const total = workerLaborTotals.get(workerId) ?? {
+          workerId,
+          workerName: currentWorker.name,
+          workerType: currentWorker.workerType,
+          billingMode,
+          dailyRate,
+          hoursPerDay,
+          hourlyRate: included ? null : hourlyRate,
+          totalHours: new Decimal(0),
+          cost: new Decimal(0),
+          known: true,
+        };
+        total.totalHours = total.totalHours.plus(group.hours);
+        if (workerCost == null) total.known = false;
+        else total.cost = total.cost.plus(workerCost);
+        workerLaborTotals.set(workerId, total);
       }
 
       const dimensionValues = [
@@ -580,6 +659,11 @@ export class CalculatorService {
         name,
         productId: product?.id ?? null,
         quantity: fmt(q),
+        moldCount: fmt(moldCount),
+        productionCycles: fmt(moldProduction.cycles),
+        productionTimePerCycleMinutes: fmt(productionTimePerCycleMinutes),
+        activeMinutes: fmt(moldProduction.activeMinutes),
+        activeHours: fmt(moldProduction.activeHours),
         lengthCm: line.lengthCm == null ? null : fmt(dec(line.lengthCm)),
         widthCm: line.widthCm == null ? null : fmt(dec(line.widthCm)),
         heightCm: line.heightCm == null ? null : fmt(dec(line.heightCm)),
@@ -590,6 +674,7 @@ export class CalculatorService {
         materials: materialRows,
         materialCost: lineMaterialKnown ? fmt(lineMaterial) : null,
         laborTasks: laborRows,
+        laborWorkers,
         laborCost: lineLaborKnown ? fmt(lineLabor) : null,
         firings: firingRows,
         firingCost: fmt(dec(lineRows[i]?.firingCost)),
@@ -695,6 +780,17 @@ export class CalculatorService {
         : ("READY" as CostStatusValue),
       warnings,
       lines: lineRows,
+      laborWorkers: Array.from(workerLaborTotals.values()).map((worker) => ({
+        workerId: worker.workerId,
+        workerName: worker.workerName,
+        workerType: worker.workerType,
+        billingMode: worker.billingMode,
+        dailyRate: fmt(worker.dailyRate),
+        hoursPerDay: fmt(worker.hoursPerDay),
+        hourlyRate: fmt(worker.hourlyRate),
+        totalHours: fmt(worker.totalHours),
+        cost: worker.known ? fmt(worker.cost) : null,
+      })),
       totals: {
         materialCost: fmt(materialCost),
         laborCost: fmt(laborCost),

@@ -86,7 +86,8 @@ const technique = (
 const worker = (id: string, name: string, dailyRate = "110") => ({
   id,
   name,
-  workerType: "INTERNAL",
+  workerType: "EXTERNAL",
+  billingMode: "HOURLY",
   dailyRate: new Decimal(dailyRate),
   hoursPerDay: new Decimal(8),
   isActive: true,
@@ -98,6 +99,7 @@ const relation = (worker: any) => ({
   isActive: true,
   factor1Override: null,
   factor2Override: null,
+  productivityOverride: null,
   rateOverride: null,
 });
 const closeTo = (
@@ -123,7 +125,7 @@ test("labor rules calculate configured cycles and reject missing factors", () =>
   );
   assert.equal(
     calculateLaborCycles(TechniqueRule.SIMPLE, "2.5").toString(),
-    "2.5",
+    "3",
   );
   assert.throws(
     () => calculateLaborCycles(TechniqueRule.UN_FACTOR, 3),
@@ -163,25 +165,21 @@ test("commercial rounding uses half up", () => {
   assert.equal(roundCommercial("1.225", 2).toFixed(2), "1.23");
 });
 
-test("task rate override takes precedence and scales with applied hours", async () => {
-  const worker1 = worker("worker-1", "Trabajador 1");
-  const simple = technique(
-    "simple",
-    "Trabajo simple",
-    TechniqueRule.SIMPLE,
-    null,
-    null,
-    "110",
+test("external labor is charged once from worker hourly rate, never from technique or legacy task rates", async () => {
+  const worker1 = worker("worker-1", "Trabajador 1", "160");
+  const techniques = [
+    technique("a", "Técnica A", TechniqueRule.SIMPLE, null, null, "900"),
+    technique("b", "Técnica B", TechniqueRule.SIMPLE, null, null, "900"),
+    technique("c", "Técnica C", TechniqueRule.SIMPLE, null, null, "900"),
+  ];
+  const workerTechniques = Object.fromEntries(
+    techniques.map((row) => [
+      `worker-1:${row.id}`,
+      { ...relation(worker1), techniqueId: row.id, rateOverride: new Decimal(800) },
+    ]),
   );
-  const workerTechniques = {
-    "worker-1:simple": {
-      ...relation(worker1),
-      techniqueId: "simple",
-      rateOverride: new Decimal(90),
-    },
-  };
   const calc = calculator({
-    techniques: { simple },
+    techniques: Object.fromEntries(techniques.map((row) => [row.id, row])),
     workers: { "worker-1": worker1 },
     workerTechniques,
   });
@@ -191,25 +189,76 @@ test("task rate override takes precedence and scales with applied hours", async 
         name: "Pieza",
         quantity: 1,
         laborTasks: [
-          {
-            techniqueId: "simple",
-            workerId: "worker-1",
-            quantity: 2,
-            appliedHours: 8,
-            rateOverride: 75,
-          },
+          { techniqueId: "a", workerId: "worker-1", quantity: 1, appliedHours: 2, rateOverride: 75 },
+          { techniqueId: "b", workerId: "worker-1", quantity: 1, appliedHours: 3 },
+          { techniqueId: "c", workerId: "worker-1", quantity: 1, appliedHours: 1 },
         ],
         firings: [],
       },
     ],
   });
   assert.equal(result.status, "READY");
-  closeTo(result.lines[0].laborTasks[0].rateOverride, "75");
-  closeTo(result.lines[0].laborTasks[0].rate, "75");
-  assert.equal(result.lines[0].laborTasks[0].rateSource, "OVERRIDE");
-  assert.equal(result.lines[0].laborTasks[0].appliedHoursSource, "OVERRIDE");
-  closeTo(result.lines[0].laborTasks[0].cost, "75");
-  closeTo(result.totals.laborCost, "75");
+  closeTo(result.lines[0].laborTasks[0].appliedHours, "2");
+  assert.equal(result.lines[0].laborTasks[0].cost, null);
+  assert.equal(result.lines[0].laborTasks[0].rate, null);
+  assert.equal(result.laborWorkers.length, 1);
+  closeTo(result.laborWorkers[0].totalHours, "6");
+  closeTo(result.laborWorkers[0].hourlyRate, "20");
+  closeTo(result.laborWorkers[0].cost, "120");
+  closeTo(result.totals.laborCost, "120");
+});
+
+test("internal included labor keeps hours visible and adds no commercial labor cost", async () => {
+  const internal = { ...worker("worker-internal", "Trabajador interno"), workerType: "INTERNAL", billingMode: "INTERNAL_INCLUDED" };
+  const simple = technique("simple", "Trabajo simple", TechniqueRule.SIMPLE, null, null, "999");
+  const result = await calculator({
+    techniques: { simple },
+    workers: { [internal.id]: internal },
+    workerTechniques: { [`${internal.id}:simple`]: { ...relation(internal), techniqueId: "simple" } },
+  }).calculate({
+    items: [{ name: "Pieza", quantity: 1, laborTasks: [{ techniqueId: "simple", workerId: internal.id, quantity: 1, appliedHours: 6 }], firings: [] }],
+  });
+  assert.equal(result.status, "READY");
+  closeTo(result.laborWorkers[0].totalHours, "6");
+  closeTo(result.laborWorkers[0].cost, "0");
+  closeTo(result.totals.laborCost, "0");
+});
+
+test("parallel molds round partial cycles up and keep the configured minutes per cycle", async () => {
+  const cases = [
+    [20, 2, 60, 10, 600, 10],
+    [21, 2, 60, 11, 660, 11],
+    [20, 1, 60, 20, 1200, 20],
+    [20, 4, 60, 5, 300, 5],
+  ] as const;
+  for (const [quantity, molds, minutes, cycles, activeMinutes, hours] of cases) {
+    const result = await calculator().calculate({
+      items: [{ name: "Pieza", quantity, moldCount: molds, productionTimePerCycleMinutes: minutes, laborTasks: [], firings: [] }],
+    });
+    assert.equal(result.status, "READY");
+    closeTo(result.lines[0].productionCycles, String(cycles));
+    closeTo(result.lines[0].activeMinutes, String(activeMinutes));
+    closeTo(result.lines[0].activeHours, String(hours));
+  }
+});
+
+test("mold time costs ten external worker-hours but remains included for an internal worker", async () => {
+  const molded = technique("molded", "Trabajo con molde", TechniqueRule.SIMPLE, null, null, "900");
+  const external = worker("worker-external", "Trabajador externo", "160");
+  const internal = { ...worker("worker-internal", "Trabajador interno"), workerType: "INTERNAL", billingMode: "INTERNAL_INCLUDED" };
+  const calculateFor = (selected: any) => calculator({
+    techniques: { molded },
+    workers: { [selected.id]: selected },
+    workerTechniques: { [`${selected.id}:molded`]: { ...relation(selected), techniqueId: "molded" } },
+  }).calculate({
+    items: [{ name: "Pieza", quantity: 20, moldCount: 2, productionTimePerCycleMinutes: 60, laborTasks: [{ techniqueId: "molded", workerId: selected.id, quantity: 20 }], firings: [] }],
+  });
+  const externalResult = await calculateFor(external);
+  const internalResult = await calculateFor(internal);
+  closeTo(externalResult.lines[0].activeHours, "10");
+  closeTo(externalResult.totals.laborCost, "200");
+  closeTo(internalResult.lines[0].activeHours, "10");
+  closeTo(internalResult.totals.laborCost, "0");
 });
 
 test("V2 workbook parity keeps zero production days at zero and returns its x2/x3 pre-tax reference prices", async () => {
@@ -279,7 +328,7 @@ test("V2 workbook parity fixture A: one piece with SIMPLE work and no glaze or f
   closeTo(result.totals.total, "768.87974");
 });
 // Workbook parity: per-line material totals, DOS_FACTORES cycles, rate override, overhead, and IGV.
-test("V2 workbook parity fixture B: two lines, three manual tasks and a worker technique rate override", async () => {
+test("V2 workbook parity fixture B: hourly worker billing is grouped across manual tasks", async () => {
   const w1 = worker("worker-1", "Trabajador 1");
   const w2 = worker("worker-2", "Trabajador 2");
   const hand = technique(
@@ -312,7 +361,7 @@ test("V2 workbook parity fixture B: two lines, three manual tasks and a worker t
     "worker-2:difficult": {
       ...relation(w2),
       techniqueId: "difficult",
-      rateOverride: new Decimal(220),
+      rateOverride: new Decimal(220), // Legacy value is ignored by hourly worker billing.
     },
   };
   const calc = calculator({
@@ -352,21 +401,21 @@ test("V2 workbook parity fixture B: two lines, three manual tasks and a worker t
   });
   assert.equal(result.status, "READY");
   assert.equal(result.lines[0].laborTasks[0].factor1Source, "TECHNIQUE");
-  assert.equal(result.lines[0].laborTasks[0].rateSource, "TECHNIQUE");
+  assert.equal(result.lines[0].laborTasks[0].rateSource, "WORKER");
   assert.equal(result.lines[0].laborTasks[0].appliedHoursSource, "CALCULATED");
   assert.equal(result.lines[1].laborTasks[0].factor1Source, "TECHNIQUE");
   assert.equal(result.lines[1].laborTasks[0].factor2Source, "TECHNIQUE");
-  assert.equal(result.lines[1].laborTasks[0].rateSource, "WORKER_TECHNIQUE");
+  assert.equal(result.lines[1].laborTasks[0].rateSource, "WORKER");
   closeTo(result.totals.materialCost, "25.9777094931");
-  closeTo(result.totals.laborCost, "660");
+  closeTo(result.totals.laborCost, "440");
   closeTo(result.totals.firingCost, "0");
-  closeTo(result.totals.technicalCost, "685.9777094931");
+  closeTo(result.totals.technicalCost, "465.9777094931");
   closeTo(result.totals.productionDays, "4");
   closeTo(result.totals.otherCosts, "680");
-  closeTo(result.totals.subtotal, "2737.9331284793");
-  closeTo(result.totals.igvAmount, "492.8279631262739");
-  closeTo(result.totals.total, "3230.7610916055737");
-  closeTo(result.totals.unitPrice, "170.04005745292494");
+  closeTo(result.totals.subtotal, "2077.9331284793");
+  closeTo(result.totals.igvAmount, "374.027963126274");
+  closeTo(result.totals.total, "2451.9610916055737");
+  closeTo(result.totals.unitPrice, "129.0505837687144");
 });
 test("V2 workbook parity fixture C: master example with both shared firings and no kiln factor", async () => {
   const w1 = worker("worker-1", "Trabajador 1");

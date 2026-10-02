@@ -15,6 +15,7 @@ import { ImportsModule } from "./imports/imports.module";
 import { DashboardModule } from "./dashboard/dashboard.module";
 import { CatalogModule } from "./catalog/catalog.module";
 import { CatalogsModule } from "./catalogs/catalogs.module";
+import { AssistantModule } from "./assistant/assistant.module";
 
 @Module({
   imports: [
@@ -40,6 +41,7 @@ import { CatalogsModule } from "./catalogs/catalogs.module";
     DashboardModule,
     CatalogsModule,
     CatalogModule,
+    AssistantModule,
   ],
   controllers: [HealthController],
   providers: [

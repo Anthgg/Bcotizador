@@ -23,12 +23,7 @@ export class WorkerTechniqueBodyDto {
   @IsOptional()
   @NumericField()
   @IsNumber({ allowNaN: false, allowInfinity: false })
-  rateOverride?: number | null;
-
-  @IsOptional()
-  @NumericField()
-  @IsNumber({ allowNaN: false, allowInfinity: false })
-  cycleRateOverride?: number | null;
+  productivityOverride?: number | null;
 
   @IsOptional()
   @IsBoolean()

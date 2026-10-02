@@ -105,11 +105,11 @@ test("calculator DTO rejects unknown or malformed top-level and nested fields", 
 
 test("relation DTOs retain supported override payloads and reject unknown or mistyped properties", async () => {
   const worker = (await transformBody(
-    { factor1Override: "10", cycleRateOverride: 25, isActive: false },
+    { factor1Override: "10", productivityOverride: "1.25", isActive: false },
     WorkerTechniqueBodyDto,
   )) as WorkerTechniqueBodyDto;
   assert.equal(worker.factor1Override, 10);
-  assert.equal(worker.cycleRateOverride, 25);
+  assert.equal(worker.productivityOverride, 1.25);
   assert.equal(worker.isActive, false);
 
   const product = (await transformBody(
@@ -124,6 +124,9 @@ test("relation DTOs retain supported override payloads and reject unknown or mis
   );
   await assert.rejects(
     transformBody({ rateOverride: "not-a-number" }, WorkerTechniqueBodyDto),
+  );
+  await assert.rejects(
+    transformBody({ cycleRateOverride: 25 }, WorkerTechniqueBodyDto),
   );
   await assert.rejects(
     transformBody({ order: "2.5" }, ProductTechniqueBodyDto),

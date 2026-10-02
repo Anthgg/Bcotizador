@@ -27,6 +27,7 @@ const ENTITY_SECTIONS: Record<string, { section: string; group: string }> = {
   CommercialSettings: { section: "Comercial", group: "settings" },
   CompanyProfile: { section: "Empresa", group: "settings" },
   CompanyLogo: { section: "Empresa", group: "settings" },
+  LoginAppearance: { section: "Login", group: "settings" },
   DocumentSettings: { section: "Documentos", group: "settings" },
   NumberSequence: { section: "Numeración", group: "settings" },
   User: { section: "Usuarios", group: "users" },
@@ -118,6 +119,14 @@ const LABELS: Record<string, string> = {
   fileName: "Archivo del logo",
   size: "Tamaño del logo",
   showLogo: "Mostrar logo",
+  focalX: "Punto focal horizontal",
+  focalY: "Punto focal vertical",
+  overlay: "Oscurecimiento de la imagen",
+  title: "Título",
+  highlight: "Texto resaltado",
+  subtitle: "Subtítulo",
+  logoTone: "Logo sobre la imagen",
+  heroImage: "Imagen del login",
   showLegalName: "Mostrar razón social",
   showRuc: "Mostrar RUC",
   showAddress: "Mostrar dirección",
@@ -190,6 +199,7 @@ const LABELS: Record<string, string> = {
   reason: "Motivo",
 };
 const PERCENT = new Set([
+  "overlay",
   "igvRate",
   "glazeDefaultPct",
   "salesTax",
@@ -209,6 +219,7 @@ const MONEY = new Set([
   "rateOverride",
 ]);
 const VALUE_LABELS: Record<string, Record<string, string>> = {
+  logoTone: { LIGHT: "Claro", ORIGINAL: "Original" },
   priceRounding: {
     NONE: "Sin redondeo",
     UP_1: "Al sol superior",
@@ -355,6 +366,7 @@ function recordName(entity: string, row: Json, entityId: string): string {
   if (entity === "CommercialSettings") return "Parámetros comerciales";
   if (entity === "CompanyProfile") return "Datos de la empresa";
   if (entity === "CompanyLogo") return "Logo de la empresa";
+  if (entity === "LoginAppearance") return "Apariencia del login";
   if (entity === "DocumentSettings") return "Documentos y PDF";
   if (entity === "NumberSequence") return row?.label ?? entityId;
   if (!row) return entityId;
