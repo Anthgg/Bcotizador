@@ -106,10 +106,10 @@ Login, Inicio, Cotizador (7 pasos), Cotizaciones y detalle, PDF, Productos (list
 
 ## 4. QA ejecutado
 
-- **Backend (integración local 2026-10-01):** Prisma validate, typecheck, build y 73/73 tests.
+- **Backend (integración local 2026-10-01):** Prisma validate, typecheck, build y 74/74 tests (20 específicos del asistente).
 - **Frontend (integración local 2026-10-01):** typecheck, build y 26/26 Vitest; ESLint terminó sin errores y con dos advertencias no bloqueantes (Fast Refresh y dependencia de `loadAdmin` en un efecto).
 - **Playwright (integración local 2026-10-01):** 23/23 contra Docker `:8081`; la suite autenticada terminó en 2.1 minutos, con flujos de cotización, catálogos, configuración, navegación y asistente.
-- Ambas imágenes Docker se reconstruyeron después de la consolidación de quemas. `/api/health`, el frontend GREDA `:8081` y Carpintería `:8080` devolvieron HTTP 200; Prisma informó 6 migraciones aplicadas y esquema al día. La pestaña visible actual estaba en `/login`, por lo que no se declara una revisión visual autenticada del dashboard.
+- Ambas imágenes Docker se reconstruyeron después de la consolidación de quemas. `/api/health`, el frontend GREDA `:8081` y Carpintería `:8080` devolvieron HTTP 200; Prisma informó 6 migraciones aplicadas y esquema al día. Una sesión aislada de Chromium inició sesión y capturó Inicio a 1440×1000 (`test-results/codex-dashboard-review.png`), sin errores de consola ni de página; la captura se revisó visualmente.
 - `npm audit` quedó en cero vulnerabilidades para ambos repos y para las dependencias de producción instaladas en Docker; `sharp` se actualizó a 0.35.5 por la alerta alta previa.
 - **Barrido:** 25 rutas × 5 anchos sin overflow horizontal, sin `console.error`, sin pageerror y sin 5xx.
 - **PDF revisado visualmente:** cotización corta con datos y logo de la empresa, y cotización larga de 2–3 páginas.
@@ -125,9 +125,10 @@ El SEO bajo es intencional: `robots.txt` bloquea la indexación de una app priva
 
 ## 5. Deuda restante
 
-1. **Pendientes de revisión local:** el barrido manual de cada botón y la matriz completa de escenarios de cotización no están cerrados. La suite autenticada automatizada pasó 23/23, pero no sustituye esos recorridos manuales. La pestaña visible de esta sesión estaba en `/login`, por lo que falta una captura/revisión visual del dashboard con sesión.
-   - La vista previa PDF generó bytes válidos por API y muestra el enlace de descarga, pero los iframes del detalle y de Documentos PDF permanecieron en blanco en la revisión IAB reciente; el evento de descarga no quedó verificado allí.
+1. **Pendiente de revisión local:** el barrido manual de cada botón sigue abierto. La suite autenticada automatizada pasó 23/23, pero no sustituye esos recorridos manuales. La revisión visual autenticada de Inicio quedó verificada en una sesión aislada de Chromium a 1440×1000, sin errores de consola ni de página.
+   - Para CTZ-2026-000025, la API devolvió un PDF de 11,262 bytes (`application/pdf`), el enlace completó una descarga con cabecera `%PDF-`, y Edge con interfaz mostró el documento y la barra del visor (`test-results/codex-quotation-pdf-review-edge.png`). Edge también mostró la muestra de Configuración (`test-results/codex-settings-pdf-review-edge.png`). La captura headless no pintó el visor; en Edge el PDF sí carga, aunque el zoom inicial recorta el extremo derecho en los paneles de 742px y 418px.
    - La cotización V2 distingue Pormenor y Por mayor en la hoja, pero no hay fórmula que cambie el precio por ese campo. No se implementó una regla de ahorro por tipo de cliente sin una fórmula de origen que la respalde.
+   - La matriz V2 quedó cubierta en borradores locales: producto existente y pieza personalizada; con/sin esmalte; técnica única y múltiples técnicas; moldes; ilustración; primera, segunda y ambas quemas; horno chico y grande; compartida y exclusiva; con y sin override; clientes Pormenor y Por mayor. En la última comparación con inputs idénticos, ambos tipos de cliente dieron S/ 8,132.19. Primera quema compartida en horno chico asignó S/ 136.27; segunda exclusiva en horno grande asignó S/ 272.54. El total fue S/ 8,132.19 con factor 3 y S/ 10,717.05 con factor 4. La corrida no guardó ni emitió cotización y tuvo cero errores de página y 5xx (`test-results/codex-illustration-matrix-price.png`).
    - Las dos fallas de mano de obra registradas en una corrida histórica anterior fueron corregidas; la corrida integrada vigente pasó 23/23.
 2. Móvil del cotizador (rendimiento 64): carga seis catálogos completos (productos y materiales de ~140 KB sin comprimir). Con gzip debería mejorar; además conviene un endpoint de opciones livianas (id, nombre, código).
 3. React Doctor:
@@ -182,7 +183,7 @@ El SEO bajo es intencional: `robots.txt` bloquea la indexación de una app priva
 
 ### QA histórica del addendum de login
 
-Los conteos de esta subsección corresponden a la validación específica del login en ese momento. La corrida integrada posterior queda registrada en la sección 4: backend 73/73, frontend 26/26 y Playwright 23/23.
+Los conteos de esta subsección corresponden a la validación específica del login en ese momento. La corrida integrada posterior queda registrada en la sección 4: backend 74/74, frontend 26/26 y Playwright 23/23.
 - **Backend:** 67/67 pruebas, entre ellas 11 nuevas:
   - 16:9, 4:3, 1:1, vertical y ultrawide sin deformación ni ampliación, original intacto y sin EXIF.
   - Rechazo de archivos falsos, dañados o pequeños; límites; texto resaltado; logo claro.

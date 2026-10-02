@@ -172,6 +172,33 @@ test("firing outcomes store actual cost, estimated cost and occupancy separately
   assert.equal(saved.realCost, 90);
 });
 
+test("recommendation results preserve estimated and real savings and time separately", async () => {
+  let saved: any;
+  const prisma: any = {
+    recommendationEvent: {
+      findUnique: async () => ({ id: "recommendation-1", estimatedSaving: { toNumber: () => 60 } }),
+    },
+    recommendationResult: {
+      upsert: async ({ create, update }: any) => { saved = { create, update }; return create; },
+    },
+  };
+  const service = new AssistantService(prisma, {} as any, new DeterministicAssistantProvider());
+  await service.recordRecommendationResult({
+    eventId: "recommendation-1",
+    realSaving: 54,
+    estimatedTimeChange: -2,
+    realTimeChange: -1.5,
+    resultQuality: "GOOD",
+  }, user("ADMIN"));
+
+  assert.equal(saved.create.estimatedSaving, 60);
+  assert.equal(saved.create.realSaving, 54);
+  assert.equal(saved.create.estimatedTimeChange, -2);
+  assert.equal(saved.create.realTimeChange, -1.5);
+  assert.equal(saved.create.resultQuality, "GOOD");
+  assert.equal(saved.update.realSaving, 54);
+});
+
 test("assistant history redacts previously private cost answers after role changes", async () => {
   const prisma: any = {
     assistantInteraction: { findMany: async () => [{ id: "private", costSensitive: true, answer: "Salario: S/ 100", feedback: null }] },
@@ -256,7 +283,10 @@ test("ADMIN recommendations compare a compatible INTERNAL_INCLUDED worker withou
       techniques: [{ techniqueId: "hand" }],
     }] },
     recommendationEvent: { create: async ({ data }: any) => { const event = { id: `worker-rec-${events.length + 1}`, ...data }; events.push(event); return event; } },
-    recommendationResult: { findMany: async () => [] },
+    recommendationResult: { findMany: async () => Array.from({ length: 10 }, () => ({
+      estimatedSaving: { toNumber: () => 60 },
+      realSaving: { toNumber: () => 60 },
+    })) },
     quotationOutcome: { findMany: async () => [] },
     firingOutcome: { findMany: async () => [] },
   };
@@ -288,6 +318,7 @@ test("ADMIN recommendations compare a compatible INTERNAL_INCLUDED worker withou
   assert.equal(recommendation.current_cost, 300);
   assert.equal(recommendation.suggested_cost, 240);
   assert.equal(recommendation.estimated_saving, 60);
+  assert.equal(recommendation.confidence, "HIGH");
   assert.equal(recommendation.time_impact.changeHours, -2);
   assert.equal(recommendation.can_apply, false);
   assert.match(recommendation.blocking_reason, /disponibilidad/i);
