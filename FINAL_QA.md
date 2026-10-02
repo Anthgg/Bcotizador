@@ -4,11 +4,13 @@ STATUS: BLOCKED
 
 BACKEND_PATH: C:\Users\anthg\bcotizador
 BACKEND_REPO: https://github.com/Anthgg/Bcotizador.git
-BACKEND_BASE_COMMIT: 43560d5 (local rebuild changes are not committed yet)
+BACKEND_BASE_COMMIT: 43560d5
+BACKEND_PUBLISHED_COMMIT: 540ff6c
 
 FRONTEND_PATH: C:\Users\anthg\cotizador
 FRONTEND_REPO: https://github.com/Anthgg/cotizador.git
-FRONTEND_BASE_COMMIT: 8b2b37a (local rebuild changes are not committed yet)
+FRONTEND_BASE_COMMIT: 8b2b37a
+FRONTEND_PUBLISHED_COMMIT: e0490bc
 
 LOCAL_URL: http://127.0.0.1:8081
 ONLY_HOST_PORT: 8081
@@ -74,7 +76,7 @@ SUPABASE_TOUCHED: NO
 CLOUD_RUN_TOUCHED: NO
 READY_FOR_USER_LOCAL_REVIEW: YES
 BLOCKERS: exhaustive manual button-by-button review remains pending; authenticated dashboard visual review is not verified in the current browser; PDF iframe display is inconsistent/blank in the current browser; quotation scenario matrix is only partially covered; this IAB session did not verify a downloaded file
-NEXT_ACTION: PUBLISH_LOCAL_SOURCE_WITH_OPEN_QA_ITEMS
+NEXT_ACTION: FINISH_MANUAL_REVIEW_AND_PDF_VALIDATION
 FINAL: BLOCKED
 
 ## Local evidence

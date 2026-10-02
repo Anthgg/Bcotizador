@@ -53,7 +53,7 @@ The local build is ready for review at http://127.0.0.1:8081. The report keeps t
 
 ## Published source
 
-- Backend implementation commit: 3dd8556
-- Frontend implementation commit: 8b2b37a
+- Backend implementation commit: 540ff6c (published to `origin/main`; base 43560d5)
+- Frontend implementation commit: e0490bc (published to `origin/main`; base 8b2b37a)
 - Backend remote: https://github.com/Anthgg/Bcotizador.git
 - Frontend remote: https://github.com/Anthgg/cotizador.git
